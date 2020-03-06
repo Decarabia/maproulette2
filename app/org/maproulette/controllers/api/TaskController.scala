@@ -6,6 +6,8 @@ import java.sql.Connection
 
 import javax.inject.Inject
 import org.locationtech.jts.geom.Envelope
+import akka.util.ByteString
+import play.api.http.HttpEntity
 import org.maproulette.Config
 import org.maproulette.controllers.CRUDController
 import org.maproulette.data._
@@ -207,6 +209,42 @@ class TaskController @Inject() (
         WebSocketMessages.taskClaimed(task, Some(WebSocketMessages.userSummary(user)))
       )
       Ok(Json.toJson(task))
+    }
+  }
+
+  /**
+    * Retrieve suggested-fix change XML for task
+    *
+    * @param taskId     Id of task that you wish to start
+    * @return
+    */
+  def suggestedFixXML(taskId: Long): Action[AnyContent] = Action.async { implicit request =>
+    val task = this.dal.retrieveById(taskId) match {
+      case Some(t) => t
+      case None    => throw new NotFoundException(s"Task with $taskId not found.")
+    }
+
+    val xml = task.suggestedFix match {
+      case Some(sf) =>
+        val suggestedFix = Json.parse(sf)
+        (suggestedFix \ "xml" \ "content").asOpt[String] match {
+          case Some(base64EncodedXML) =>
+            new String(java.util.Base64.getDecoder.decode(base64EncodedXML))
+          case None => throw new NotFoundException(s"Task $taskId does not offer change XML.")
+        }
+
+      case None => throw new NotFoundException(s"Task $taskId does not offer a suggested fix.")
+    }
+
+    Future {
+      Result(
+        header =
+          ResponseHeader(OK, Map(CONTENT_DISPOSITION -> s"attachment; filename=task_${taskId}_proposed_change.xml")),
+        body = HttpEntity.Strict(
+          ByteString.fromString(xml),
+          Some("text/xml")
+        )
+      )
     }
   }
 

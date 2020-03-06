@@ -2816,6 +2816,7 @@ GET     /task/:id                                   @org.maproulette.controllers
 #     description: The id of the Task to retrieve
 ###
 GET     /task/:id/start                               @org.maproulette.controllers.api.TaskController.startOnTask(id:Long)
+GET     /task/:id/sfxml                               @org.maproulette.controllers.api.TaskController.suggestedFixXML(id:Long)
 ###
 # tags: [ Task ]
 # summary: Release a Task (unlocks it)
